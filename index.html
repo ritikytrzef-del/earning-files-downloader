@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Earning Files Downloader</title>
+
+<!-- Telegram SDK -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- TON Connect SDK -->
+<script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
+<script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+
+<!-- Monetag SDK -->
+<script src="//libtl.com/sdk.js" data-zone="10052688" data-sdk="show_10052688"></script>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
+
+<style>
+body { font-family: 'Arial', sans-serif; margin:0; padding:10px; background:linear-gradient(135deg,#f5f5f5,#e0e0e0); color:#333; overflow-x:hidden; }
+.header { background: linear-gradient(90deg,#0088cc,#ff4444); color:white; text-align:center; padding:20px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.2); }
+.header h1 { margin:0; font-size:24px; text-transform:uppercase; }
+.header p { margin:5px 0 0; font-size:14px; opacity:0.9; }
+.container { max-width:400px; margin:20px auto; }
+.stats { display:flex; justify-content:space-around; background:white; padding:15px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1); margin-bottom:20px; }
+.stats div { font-weight:bold; color:#4CAF50; text-align:center; flex:1; padding:5px; }
+.progress { width:50px; height:50px; background:conic-gradient(#4CAF50 0%,#ddd 0%); border-radius:50%; position:relative; margin:0 auto 5px; }
+.progress-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:12px; }
+.wallet-section { background:#fff; padding:10px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1); margin-bottom:20px; text-align:center; }
+.connect-btn { background:#0088cc; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold; }
+.files-section h2 { color:#0088cc; margin-bottom:15px; font-size:20px; text-align:center; text-transform:uppercase; }
+.file-card { background:white; border-radius:15px; padding:20px; box-shadow:0 6px 20px rgba(0,0,0,0.1); display:flex; align-items:center; margin-bottom:20px; }
+.file-img { width:90px; height:90px; background:linear-gradient(45deg,#ff6b6b,#4ecdc4); border-radius:15px; margin-right:20px; display:flex; align-items:center; justify-content:center; color:white; font-size:24px; }
+.file-info h3 { margin:0; color:#333; font-size:20px; font-weight:600; }
+.file-info p { margin:8px 0; color:#666; font-size:14px; }
+.unlock-btn, .download-btn, .payout-btn { background:linear-gradient(90deg,#ff4444,#ff8c00); color:white; border:none; padding:12px 25px; border-radius:10px; cursor:pointer; font-weight:bold; transition:transform 0.2s; box-shadow:0 2px 5px rgba(255,68,68,0.3); }
+.download-btn { background:linear-gradient(90deg,#4CAF50,#00e676); }
+.payout-btn { background:linear-gradient(90deg,#9C27B0,#E040FB); margin-top:10px; }
+.nav-bar { position:fixed; bottom:0; left:0; width:100%; background:white; display:flex; justify-content:space-around; padding:10px 0; box-shadow:0 -2px 10px rgba(0,0,0,0.1); }
+.nav-btn { background:none; border:none; color:#0088cc; font-weight:bold; cursor:pointer; display:flex; flex-direction:column; align-items:center; }
+.nav-btn span { font-size:12px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Earning Files Downloader</h1>
+    <p>Watch Ads, Earn & Download Files!</p>
+</div>
+
+<div class="container">
+    <div class="stats">
+        <div>
+            <div class="progress" id="adsProgress"><div class="progress-text" id="adsLeft">Ads Left: 5</div></div>
+        </div>
+        <div>
+            <div class="progress" id="coinsProgress"><div class="progress-text" id="coinsDisplay">Coins Earned: 0 (≈ $0.00)</div></div>
+        </div>
+    </div>
+
+    <div class="wallet-section">
+        <button id="connectWalletBtn" class="connect-btn">Connect TON Wallet</button>
+        <div id="walletAddress" style="margin-top:10px;color:#666;"></div>
+        <button id="payoutBtn" class="payout-btn" disabled>Payout to TON Wallet</button>
+    </div>
+
+    <div class="files-section">
+        <h2>Available Files</h2>
+        <div class="file-card">
+            <div class="file-img">📥</div>
+            <div class="file-info">
+                <h3>Top Earning Telegram Mini App Image</h3>
+                <p>Unlock by Watching 5 Ads</p>
+                <button id="watchAdsBtn" class="unlock-btn">Watch Ads</button>
+                <button id="downloadBtn" class="download-btn" disabled>Download & Earn $0.001</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="nav-bar">
+    <button class="nav-btn" id="profileBtn"><span>Profile</span><div id="profileName">Guest</div></button>
+    <button class="nav-btn" id="adsBtn"><span>Ads</span></button>
+    <button class="nav-btn" id="leaderboardBtn"><span>Leaderboard</span></button>
+    <button class="nav-btn" id="walletBtn"><span>Wallet</span></button>
+</div>
+
+<script>
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyDJQSmPvj1Ssk_bKYmxBgENZG6Qneo7hfY",
+  authDomain: "downloadearn-10c7d.firebaseapp.com",
+  databaseURL: "https://downloadearn-10c7d-default-rtdb.firebaseio.com",
+  projectId: "downloadearn-10c7d",
+  storageBucket: "downloadearn-10c7d.firebasestorage.app",
+  messagingSenderId: "23637526025",
+  appId: "1:23637526025:web:4d5966f980998033c7dad8"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+console.log("✅ Firebase connected");
+
+// Telegram WebApp
+const tg = window.Telegram?.WebApp || {
+    initDataUnsafe:{user:{first_name:'Guest'}}, ready:()=>{}, expand:()=>{}, showAlert:(msg)=>alert(msg)
+};
+
+// TON Connect UI
+const manifestUrl = 'https://ritikytrzef-del.github.io/earning-files-downloader/tonconnect-manifest.json';
+const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({ manifestUrl });
+
+let coins = 0;
+let adsLeft = 5;
+let adsWatched = 0;
+let isWalletConnected = false;
+let walletAddress = '';
+const adsPerFile = 5;
+const coinValue = 0.001;
+const tonAmountPerCoin = 0.0001;
+const imageUrl = 'https://via.placeholder.com/400x300?text=Earning+Image';
+
+// Profile
+const userName = tg.initDataUnsafe.user?.first_name || 'Guest';
+document.getElementById('profileName').textContent = userName;
+
+// UI update
+function updateUI(){
+    document.getElementById('coinsDisplay').textContent=`Coins Earned: ${coins} (≈ $${(coins*coinValue).toFixed(3)})`;
+    document.getElementById('adsLeft').textContent=`Ads Left: ${adsLeft}`;
+    document.getElementById('payoutBtn').disabled = !isWalletConnected || coins===0;
+}
+
+// Show Ad function
+function showAd(callback){
+    if(typeof show_10052688==='function'){
+        show_10052688().then(()=>{tg.showAlert('Ad Completed!');callback();}).catch(()=>{tg.showAlert('Ad Failed!');callback();});
+    } else { setTimeout(()=>{callback();},3000); }
+}
+
+// Watch Ads
+document.getElementById('watchAdsBtn').addEventListener('click',()=>{
+    if(adsLeft>0){
+        showAd(()=>{
+            adsWatched++;
+            adsLeft--;
+            if(adsWatched>=adsPerFile){document.getElementById('downloadBtn').disabled=false;adsWatched=0;tg.showAlert('File Unlocked! Now Download to Earn.');}
+            updateUI();
+        });
+    } else tg.showAlert('No ads left!');
+});
+
+// Download Button
+document.getElementById('downloadBtn').addEventListener('click',()=>{
+    if(!document.getElementById('downloadBtn').disabled){
+        const link=document.createElement('a'); link.href=imageUrl; link.download='earning_image.png'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        coins+=1;
+        tg.showAlert('File Downloaded! Earned 1 Coin ($0.001)');
+        document.getElementById('downloadBtn').disabled=true; adsLeft=5; adsWatched=0; updateUI();
+    }
+});
+
+// Connect Wallet
+document.getElementById('connectWalletBtn').addEventListener('click',async()=>{
+    try{
+        await tonConnectUI.connectWallet();
+        const wallet = tonConnectUI.connectedWallet;
+        if(wallet){
+            isWalletConnected=true;
+            walletAddress=wallet.account.address;
+            document.getElementById('walletAddress').textContent=`Connected: ${walletAddress.slice(0,6)}...`;
+            tg.showAlert('TON Wallet Connected!');
+            updateUI();
+        }
+    } catch(err){
+        console.error(err);
+        tg.showAlert('Connection Failed: '+err.message);
+    }
+});
+
+tonConnectUI?.onStatusChange((wallet)=>{
+    isWalletConnected=!!wallet;
+    if(wallet){ walletAddress=wallet.account.address; document.getElementById('walletAddress').textContent=`Connected: ${walletAddress.slice(0,6)}...`; }
+    else document.getElementById('walletAddress').textContent='';
+    updateUI();
+});
+
+// Payout Button
+document.getElementById('payoutBtn').addEventListener('click',async()=>{
+    if(!isWalletConnected || coins<=0){ tg.showAlert('Connect Wallet & Earn Coins First!'); return; }
+    try{
+        const transaction={ validUntil: Math.floor(Date.now()/1000)+300, messages:[{ address:walletAddress, amount:(coins*tonAmountPerCoin*1e9).toString(), payload:'Earned Reward' }]};
+        await tonConnectUI.sendTransaction(transaction);
+        tg.showAlert(`Payout Sent! ${coins} Coins → ${(coins*tonAmountPerCoin)} TON`);
+        coins=0; updateUI();
+    } catch(err){ console.error(err); tg.showAlert('Payout Failed: '+err.message); }
+});
+
+// Navigation Buttons
+document.getElementById('profileBtn').addEventListener('click',()=>tg.showAlert(`Profile: Welcome, ${userName}!`));
+document.getElementById('adsBtn').addEventListener('click',()=>tg.showAlert('Ads Section: Watch more ads to earn!'));
+document.getElementById('leaderboardBtn').addEventListener('click',()=>tg.showAlert('Leaderboard: Coming Soon!'));
+document.getElementById('walletBtn').addEventListener('click',()=>tg.showAlert('Wallet Section: Connect your TON wallet above.'));
+
+// Initial UI update
+updateUI();
+</script>
+</body>
+  </html>
