@@ -65,15 +65,17 @@
 
   .history-item{background:#111;padding:18px;margin:15px 0;border-radius:16px;border-left:6px solid #00ffff}
   .history-item.success{border-left-color:#00ff88;background:#001a08}
-  .timer{font-size:22px;color:#ff00ff;font-weight:bold;margin-top:10px}
+  .timer{font-size:22px;color:#ff00ff;font-weight:bold;margin-top:10px;text-align:center}
   .success-text{color:#00ff88;font-weight:bold;font-size:19px}
 
   .modal-content{background:#111;padding:40px 30px;border-radius:25px;width:90%;max-width:400px;margin:100px auto 0;text-align:center;border:3px solid #00ffff;box-shadow:0 0 50px rgba(0,255,255,0.4)}
   .modal input{background:#000;border:2px solid #00ffff;border-radius:12px;padding:16px;color:#fff;margin:12px 0;width:100%;box-sizing:border-box;font-size:17px}
   .modal button{background:linear-gradient(135deg,#00ffff,#8a2be2);color:#000;padding:16px;border:none;border-radius:12px;font-size:18px;margin-top:10px;width:100%;cursor:pointer;font-weight:bold;box-shadow:0 0 25px #0ff}
 
-  .tab-btn{background:#222;padding:12px 20px;border-radius:20px;margin:0 8px;cursor:pointer}
-  .tab-btn.active{background:linear-gradient(135deg,#00ffff,#8a2be2);color:#000}
+  /* Tabs Style - Highlight Active */
+  .tab-container{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin:20px 0}
+  .tab-btn{background:#333;color:#aaa;padding:12px 24px;border-radius:30px;font-weight:bold;cursor:pointer;border:none;transition:0.3s;box-shadow:0 0 15px rgba(0,0,0,0.5)}
+  .tab-btn.active{background:linear-gradient(135deg,#00ffff,#8a2be2);color:#000;box-shadow:0 0 30px #00ffff;font-weight:bold}
 </style>
 </head>
 <body>
@@ -109,7 +111,7 @@
   <button class="close" onclick="closeScreen()">X</button>
   <h2 style="text-align:center;color:#00ffff;margin:30px 0">Your Points: <span id="wPoint">0</span></h2>
   
-  <div style="text-align:center;margin:20px 0">
+  <div class="tab-container">
     <button class="tab-btn active" onclick="showTab('amazon')">Amazon Gift Card</button>
     <button class="tab-btn" onclick="showTab('google')">Google Play</button>
     <button class="tab-btn" onclick="showTab('history')">History</button>
@@ -128,7 +130,7 @@
   <div id="historyTab" style="display:none">
     <h3 style="text-align:center;color:#0ff;margin:20px 0">Withdrawal History</h3>
     <div id="historyList" style="margin-top:20px"></div>
-    <div id="cooldownTimer" class="timer" style="text-align:center;margin:30px 0;display:none">
+    <div id="cooldownTimer" class="timer" style="display:none">
       Next withdrawal in: <span id="timerText">00:00:00</span>
     </div>
   </div>
@@ -179,10 +181,9 @@ let points = parseInt(localStorage.getItem(POINT_KEY)) || 0;
 let energy = 10;
 let todayTaps = 0;
 let selectedAmount = 0;
-let selectedType = "amazon"; // amazon or google
+let selectedType = "amazon";
 const DAILY_LIMIT = 3200;
 
-// Amazon vouchers
 const amazonVouchers = [
   {inr:1, points:200},
   {inr:5, points:1000},
@@ -190,7 +191,6 @@ const amazonVouchers = [
   {inr:20, points:4000}
 ];
 
-// Google Play vouchers
 const googleVouchers = [
   {inr:10, points:2000},
   {inr:20, points:4000},
@@ -209,10 +209,8 @@ if (localStorage.getItem(DATE_KEY) !== today) {
   todayTaps = parseInt(localStorage.getItem(DAILY_KEY)) || 0;
 }
 
-// Load withdrawal history
 let withdrawHistory = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
 
-// Check cooldown timer
 let lastWithdrawTime = parseInt(localStorage.getItem(LAST_WITHDRAW_KEY)) || 0;
 
 function update() {
@@ -228,14 +226,13 @@ function update() {
 }
 
 function loadVouchers() {
-  // Amazon
   let amazonHtml = "";
   amazonVouchers.forEach(v => {
     const progress = Math.min((points / v.points)*100, 100);
     const unlocked = points >= v.points;
     amazonHtml += `<div class="voucher">
       <div class="v-header">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg" alt="Amazon" style="height:32px">
+        <img src="https://1000logos.net/wp-content/uploads/2021/02/Amazon-logo.png" alt="Amazon" style="height:32px">
         <span>₹${v.inr} Gift Card</span>
       </div>
       <div class="v-amount">₹${v.inr}</div>
@@ -248,7 +245,6 @@ function loadVouchers() {
   });
   document.getElementById("amazonVouchers").innerHTML = amazonHtml;
 
-  // Google Play
   let googleHtml = "";
   googleVouchers.forEach(v => {
     const progress = Math.min((points / v.points)*100, 100);
@@ -302,11 +298,9 @@ function updateCooldownTimer() {
   }
 }
 
-// Run timer every second
 setInterval(updateCooldownTimer, 1000);
 
 function canWithdraw() {
-  // Check daily limit (3 times)
   const todayWithdrawDate = localStorage.getItem(WITHDRAW_DATE_KEY);
   let todayCount = 0;
   if (todayWithdrawDate === today) {
@@ -317,7 +311,6 @@ function canWithdraw() {
     return false;
   }
 
-  // Check 24-hour cooldown
   const now = Date.now();
   if (lastWithdrawTime && (now - lastWithdrawTime < 24*60*60*1000)) {
     Telegram.WebApp.showAlert("24 hours cooldown active hai! Timer dekh lo.");
@@ -355,17 +348,14 @@ function submitRedeem() {
   points -= cost;
   localStorage.setItem(POINT_KEY, points);
 
-  // Update withdrawal count
   let todayCount = parseInt(localStorage.getItem(WITHDRAW_COUNT_KEY)) || 0;
   todayCount++;
   localStorage.setItem(WITHDRAW_COUNT_KEY, todayCount.toString());
   localStorage.setItem(WITHDRAW_DATE_KEY, today);
 
-  // Update last withdraw time
   const now = Date.now();
   localStorage.setItem(LAST_WITHDRAW_KEY, now.toString());
 
-  // Add to history
   withdrawHistory.push({
     type: selectedType,
     amount: selectedAmount,
@@ -373,7 +363,6 @@ function submitRedeem() {
   });
   localStorage.setItem(HISTORY_KEY, JSON.stringify(withdrawHistory));
 
-  // Send to channel
   const typeText = selectedType === "amazon" ? "AMAZON E-GIFT CARD" : "GOOGLE PLAY CODE";
   fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
@@ -468,10 +457,10 @@ function showTab(tab) {
   document.getElementById("historyTab").style.display = tab === 'history' ? 'block' : 'none';
 
   document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
-  event.target.classList.add("active");
+  document.querySelector(`.tab-btn[onclick="showTab('${tab}')"]`).classList.add("active");
 }
 
 update();
 </script>
 </body>
-</html>
+  </html>
